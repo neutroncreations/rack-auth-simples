@@ -13,11 +13,7 @@ module Rack
 
       def call env
 
-      	if @rules.parse_rules
-      		@app.call env
-      	else
-      		return [403, {'Content-Type' => 'text/plain' }, ['Forbidden'] ]
-      	end
+        @rules.parse env, @app
         
       end
     end

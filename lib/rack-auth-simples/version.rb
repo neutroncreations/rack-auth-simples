@@ -1,7 +1,7 @@
 module Rack
   module Auth
-    module Simples
-      VERSION = "0.0.1"
+    class Simples
+      VERSION = "0.0.2"
     end
   end
 end

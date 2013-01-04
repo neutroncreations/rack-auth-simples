@@ -9,8 +9,18 @@ module Rack
 
     		def initialize
     			@ips = []
-    			@triggers = []	
+    			@triggers = []
+
+          @opts = {
+            :secret => 'SET_VIA_CONFIG',
+            :return_url => '/',
+            :cookie_name => '_auth_allowed'
+          }
     		end
+
+        def set_options opts
+          @opts.merge! opts
+        end
 
     		def add_ip ip
     			@ips << ip
@@ -24,7 +34,9 @@ module Rack
     			@triggers << url
     		end
 
-    		def parse_rules env
+    		def parse env, app
+
+          fail = [403, {'Content-Type' => 'text/plain' }, ['Forbidden'] ]
 
           if env['HTTP_X_FORWARDED_FOR']
             ip = env['HTTP_X_FORWARDED_FOR'].split(',').pop
@@ -35,21 +47,29 @@ module Rack
 
           if @ips.any?
             addrs_list = IPAddrList.new(@ips)
-            return false unless addrs_list.include? ip
+            return fail unless addrs_list.include? ip
           end
 
           if @triggers.any?
 
-            # check cookie, return true if present
+            cookie = Rack::Request.new(env).cookies[@opts[:cookie_name]]
 
-            # check trigger url, if match set cookie and return true
+            return app.call(env) if cookie == @opts[:secret]
 
-            # return false
+            if @triggers.include? env['PATH_INFO']
+
+              headers = {'Location' => @opts[:return_url]}
+              Rack::Utils.set_cookie_header!(headers, @opts[:cookie_name], {:value => @opts[:secret], :path => "/"})
+              return [302, headers, ['']]
+
+            end
+
+            return fail
 
           end
 
           # default to true
-          return true
+          return app.call env
 
     		end
 
