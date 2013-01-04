@@ -10,11 +10,13 @@ module Rack
     		def initialize
     			@ips = []
     			@triggers = []
+          @exceptions = []
 
           @opts = {
             :secret => 'SET_VIA_CONFIG',
             :return_url => '/',
-            :cookie_name => '_auth_allowed'
+            :cookie_name => '_auth_allowed',
+            :fail => :forbidden
           }
     		end
 
@@ -26,6 +28,10 @@ module Rack
     			@ips << ip
     		end
 
+        def add_exception url
+          @exceptions << url
+        end
+
         def allow_local
           @ips << '127.0.0.1'
         end
@@ -36,7 +42,11 @@ module Rack
 
     		def parse env, app
 
-          fail = [403, {'Content-Type' => 'text/plain' }, ['Forbidden'] ]
+          if @opts[:fail] == :forbidden
+            fail = [403, {'Content-Type' => 'text/plain' }, ['Forbidden'] ]
+          else 
+            fail = [302, {'Location' => @opts[:fail] }, [] ]
+          end
 
           if env['HTTP_X_FORWARDED_FOR']
             ip = env['HTTP_X_FORWARDED_FOR'].split(',').pop
@@ -44,6 +54,7 @@ module Rack
             ip = env["REMOTE_ADDR"]
           end
 
+          return app.call(env) if @exceptions.include? env['PATH_INFO']
 
           if @ips.any?
             addrs_list = IPAddrList.new(@ips)
