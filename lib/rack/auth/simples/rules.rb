@@ -11,12 +11,14 @@ module Rack
     			@ips = []
     			@triggers = []
           @exceptions = []
+          @codes = []
 
           @opts = {
             :secret => 'SET_VIA_CONFIG',
             :return_url => '/',
             :cookie_name => '_auth_allowed',
-            :fail => :forbidden
+            :fail => :forbidden,
+            :code_param => 'code'
           }
     		end
 
@@ -40,6 +42,10 @@ module Rack
     			@triggers << url
     		end
 
+        def add_trigger_code code, url, target
+          @codes << {:code => code, :url => url, :target => target}
+        end
+
     		def parse env, app
 
           if @opts[:fail] == :forbidden
@@ -56,33 +62,61 @@ module Rack
 
           return app.call(env) if @exceptions.include? env['PATH_INFO']
 
+          ok = true
+
           if @ips.any?
             addrs_list = IPAddrList.new(@ips)
             return fail unless addrs_list.include? ip
           end
 
+          
+          return app.call(env) if get_cookie(env) == @opts[:secret]
+
+
           if @triggers.any?
-
-            cookie = Rack::Request.new(env).cookies[@opts[:cookie_name]]
-
-            return app.call(env) if cookie == @opts[:secret]
 
             if @triggers.include? env['PATH_INFO']
 
-              headers = {'Location' => @opts[:return_url]}
-              Rack::Utils.set_cookie_header!(headers, @opts[:cookie_name], {:value => @opts[:secret], :path => "/"})
-              return [302, headers, ['']]
+              return set_cookie
 
             end
 
-            return fail
+            ok = false
+
+          end
+
+          if @codes.any?
+
+            @codes.each do |code|
+
+              if code[:url] == env['PATH_INFO'] and code[:code] == Rack::Request.new(env).params[@opts[:code_param]]
+                return set_cookie(code[:target])
+              end
+
+            end
+
+            ok = false
 
           end
 
           # default to true
-          return app.call env
+          return app.call env if ok
+
+          return fail
 
     		end
+
+        private
+
+          def get_cookie env
+            Rack::Request.new(env).cookies[@opts[:cookie_name]]
+          end
+
+          def set_cookie url = nil
+            headers = {'Location' => ( url || @opts[:return_url] ) }
+            Rack::Utils.set_cookie_header!(headers, @opts[:cookie_name], {:value => @opts[:secret], :path => "/"})
+            return [302, headers, ['']]
+          end
 
 
     	end
