@@ -62,7 +62,7 @@ module Rack
 
           if @exceptions.any?
             @exceptions.each do |ex|
-              ex = Regexp.new "^#{Regexp.escape ex}" if ex.is_a? String
+              ex = Regexp.new "^#{Regexp.escape ex}$" if ex.is_a? String
               return app.call(env) if  ex =~ env['PATH_INFO']
             end
           end
