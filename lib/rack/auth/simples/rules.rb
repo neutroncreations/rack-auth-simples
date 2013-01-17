@@ -60,7 +60,12 @@ module Rack
             ip = env["REMOTE_ADDR"]
           end
 
-          return app.call(env) if @exceptions.include? env['PATH_INFO']
+          if @exceptions.any?
+            @exceptions.each do |ex|
+              ex = Regexp.new "^#{Regexp.escape ex}" if ex.is_a? String
+              return app.call(env) if  ex =~ env['PATH_INFO']
+            end
+          end
 
           ok = true
 
