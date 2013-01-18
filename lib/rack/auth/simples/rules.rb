@@ -1,5 +1,8 @@
 require 'ipaddr'
 require 'ipaddr_list'
+
+require 'digest/md5'
+
 module Rack
   module Auth
     
@@ -18,7 +21,8 @@ module Rack
             :return_url => '/',
             :cookie_name => '_auth_allowed',
             :fail => :forbidden,
-            :code_param => 'code'
+            :code_param => 'code',
+            :days => 14
           }
     		end
 
@@ -75,7 +79,7 @@ module Rack
           end
 
           
-          return app.call(env) if get_cookie(env) == @opts[:secret]
+          return update_cookie(app.call env) if check_cookie(env)
 
 
           if @triggers.any?
@@ -113,14 +117,42 @@ module Rack
 
         private
 
-          def get_cookie env
-            Rack::Request.new(env).cookies[@opts[:cookie_name]]
+          def check_cookie env
+            value = Rack::Request.new(env).cookies[@opts[:cookie_name]]
+            
+            if value.nil?
+              return false
+            else
+              time, hash = value.split('.')
+              expiry = time.to_i
+              return ( (expiry > Time.now.to_i) && (hash == cookie_hash(expiry)) )
+            end
+
+          end
+
+          def cookie_hash time = Time.now.to_i
+            ::Digest::MD5.hexdigest "#{time.to_s}---#{@opts[:secret]}"
+          end
+
+          def cookie
+            expires = (Time.now + @opts[:days] * 86400)
+            {
+              :value => "#{expires.to_i.to_s}.#{cookie_hash expires.to_i}", 
+              :path => "/",
+              :expires => expires
+            }
           end
 
           def set_cookie url = nil
             headers = {'Location' => ( url || @opts[:return_url] ) }
-            Rack::Utils.set_cookie_header!(headers, @opts[:cookie_name], {:value => @opts[:secret], :path => "/"})
+            Rack::Utils.set_cookie_header!(headers, @opts[:cookie_name], cookie)
             return [302, headers, ['']]
+          end
+
+          def update_cookie response
+            status, headers, body = response
+            Rack::Utils.set_cookie_header!(headers, @opts[:cookie_name], cookie)
+            return [status, headers, body]
           end
 
 
