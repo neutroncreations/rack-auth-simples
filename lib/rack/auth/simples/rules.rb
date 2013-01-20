@@ -15,6 +15,7 @@ module Rack
     			@triggers = []
           @exceptions = []
           @codes = []
+          @fb = false
 
           @opts = {
             :secret => 'SET_VIA_CONFIG',
@@ -42,6 +43,10 @@ module Rack
           @ips << '127.0.0.1'
         end
 
+        def allow_facebook
+          @fb = true
+        end
+
     		def add_trigger_url url
     			@triggers << url
     		end
@@ -51,6 +56,8 @@ module Rack
         end
 
     		def parse env, app
+
+          return app.call(env) if @fb && env['HTTP_USER_AGENT'] =~ /facebookexternalhit/
 
           if @opts[:fail] == :forbidden
             fail = [403, {'Content-Type' => 'text/plain' }, ['Forbidden'] ]
