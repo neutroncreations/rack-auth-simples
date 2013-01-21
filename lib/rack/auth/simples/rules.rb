@@ -62,7 +62,7 @@ module Rack
           if @opts[:fail] == :forbidden
             fail = [403, {'Content-Type' => 'text/plain' }, ['Forbidden'] ]
           else 
-            fail = [302, {'Location' => @opts[:fail] }, [] ]
+            fail = [302, {'Content-Type' => '', 'Location' => @opts[:fail] }, [] ]
           end
 
           if env['HTTP_X_FORWARDED_FOR']
@@ -151,7 +151,7 @@ module Rack
           end
 
           def set_cookie url = nil
-            headers = {'Location' => ( url || @opts[:return_url] ) }
+            headers = {'Content-Type' => '', 'Location' => ( url || @opts[:return_url] ) }
             Rack::Utils.set_cookie_header!(headers, @opts[:cookie_name], cookie)
             return [302, headers, ['']]
           end
