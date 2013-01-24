@@ -105,7 +105,7 @@ module Rack
 
             @codes.each do |code|
 
-              if code[:url] == env['PATH_INFO'] and code[:code] == Rack::Request.new(env).params[@opts[:code_param]]
+              if code[:url] == env['PATH_INFO'] and code[:code].downcase == Rack::Request.new(env).params[@opts[:code_param]].downcase
                 return set_cookie(code[:target])
               end
 
